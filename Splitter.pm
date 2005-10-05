@@ -25,7 +25,7 @@ use vars qw($VERSION @ISA @EXPORT @EXPORT_OK %EXPORT_TAGS);
 	
 );
 
-$VERSION = '0.02';
+$VERSION = '0.03';
 
 # Preloaded methods go here.
 
@@ -49,7 +49,11 @@ sub make_sec ($) {
   my ($h, $m, $s) =
     $t =~ /^(?:([\d.]+)(?:h|:(?=.*[m:])))?(?:([\d.]+)[m:])?(?:([\d.]+)s?)?$/
       or die "Unexpected format of time: `$t'";
-  ($h || 0) * 3600 + ($m || 0) * 60 + $s;
+  for my $p ($h, $m, $s) {
+    next unless defined $p;
+    $p =~ /^(\d+\.?|\d*\.\d+)$/ or die "Unexpected format of time: `$t'";
+  }
+  ($h || 0) * 3600 + ($m || 0) * 60 + ($s || 0);
 }
 
 sub MY_INF () {1e100}
@@ -165,7 +169,8 @@ sub mp3split ($;@) {
 		 ($Xing and $piece_opts{keep_Xing}), $Xing, \%piece_opts, $outf);
 	    print $outf $append or die if length $append;
 
-	    if ($Xing and $piece_opts{update_Xing}) {	# Print actual header
+	    if ($Xing and $piece_opts{keep_Xing} and $piece_opts{update_Xing}) {
+		# Print actual header
 		my $pos = tell $outf;
 		seek $outf, 0, $Xing_tell or die;
 		push @off, ([$ptime, $piece_frames, $pos]) x (100 - @off)
@@ -215,7 +220,7 @@ sub mp3split ($;@) {
 
 	# For Xing header
 	if ($end < MY_INF) {
-	  my $perc = int($ptime/($end-$start)*100) if $end > $start;
+	  my $perc = $end > $start ? int($ptime/($end-$start)*100) : -1;
 	  push @off, ([$ptime, $piece_frames, tell $outf]) x ($perc - @off + 1)
 	    if $perc >= @off;
 	} elsif ($l * 1.01 <= $piece_frames) {
@@ -291,7 +296,7 @@ L<Audio::FindChunks|Audio::FindChunks>.
 
 The following I<callback> options should be function references with signatures
 
-  piece_name($pieceNum, $mp3name, $piece, $Xing, $opts);
+  name_callback($pieceNum, $mp3name, $piece, $Xing, $opts); # returns file name
   prepend($pieceNum, $mp3name, $piece, $Xing, $opts,
 	  $pieceFileName, $pieceFileHandle);
   append(     $mp3name, $piece, $pieceNum, $cur_total_time, $piece_time,
@@ -324,6 +329,28 @@ condition is not rised; the default is 0.02 (in sec).  If C<overwrite> is false
   mp3split
   mp3split_read
 
+=head1 EXAMPLES
+
+The file with piece description
+
+  0		# Copy whole file (0..INF), and update Xing header
+
+will (when used with mp3_split_read() and default options) keep all MP3 frames
+(the current implementation removes all the non-frame information from the
+file; this may/should change in the future).  If Xing frame is present, it
+is updated with information about actual layout of the file (length, and
+positions of intermediate seek-by-percentage points).
+
+Here is a more elaborate example of the syntax:
+
+  0.15	0h0:0.05 # The first piece of length 0.05sec starting at 0.15sec
+  0.3s	=1	 # The 2nd piece starts at 0.3sec, ends at 1sec
+  >2	=1m	 # The 3rd piece starts 2 seconds after the 2nd, ends at 60sec
+  >0	INF	 # The 4th piece starts where 3rd ends, ends where 5th starts
+  1:15		 # Last piece starts at 1m15s and goes to the end
+
+wi
+
 =head1 SEE ALSO
 
 L<mp3cut>, L<Audio::FindChunks>
@@ -336,7 +363,7 @@ Ilya Zakharevich, E<lt>cpan@ilyaz.orgE<gt>
 
 Lousely based on code of C<mp3cut> by Johan Vromans <jvromans@squirrel.nl>.
 
-Copyright (C) 2004 by Ilya Zakharevich
+Copyright (C) 2004, 2005 by Ilya Zakharevich
 
 This library is free software; you can redistribute it and/or modify
 it under the same terms as Perl itself, either Perl version 5.8.2 or,

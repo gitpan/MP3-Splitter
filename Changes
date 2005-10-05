@@ -21,3 +21,11 @@ Revision history for Perl extension MP3::Splitter.
 	optional configuration parameters: use a hash.
 	Export mp3split() by default.
 	New function mp3split_read().
+
+0.03	Would not detect misformatted time (such as 3.03.45).
+	"Unitialized" warning if seconds are omitted.
+	Had `my $var = ... if ...' mis-construct.
+	Now update_Xing is a no-op unless keep_Xing...
+	Add example file `cuts' and two components of a sample mp3 file.
+	Actual used callback name is `name_callback' not 'piece_name'.
+	Actual tests introduced.

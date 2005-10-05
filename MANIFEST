@@ -6,3 +6,6 @@ t/MP3-Splitter.t
 Splitter.pm
 TODO
 META.yml                                 Module meta-data (added by MakeMaker)
+cuts
+frame1.mp3
+Xing.mp3
