@@ -25,7 +25,7 @@ use vars qw($VERSION @ISA @EXPORT @EXPORT_OK %EXPORT_TAGS);
 	
 );
 
-$VERSION = '0.03';
+$VERSION = '0.04';
 
 # Preloaded methods go here.
 
@@ -149,7 +149,7 @@ sub mp3split ($;@) {
     print STDERR "`$f'\n" if $opts{verbose};
     while ( $frame = MPEG::Audio::Frame->read(\*F) or ++$finished) {
 	# Check whether it is an Xing frame
-	if ( !$frames
+	if ( !$frames and !$finished
 	     and ($Xing_off, undef, undef, my $fr, my $b) = _Xing($frame) ) {
 	    $av_fr = $b/$fr;		# Average length of a frame
 	    $frt = $frame->seconds;	# Depends on layer and samplerate only
@@ -250,7 +250,6 @@ sub mp3split_read ($$;$) {
 
 1;
 __END__
-# Below is stub documentation for your module. You'd better edit it!
 
 =head1 NAME
 
@@ -259,6 +258,9 @@ MP3::Splitter - Perl extension for splitting MP3 files
 =head1 SYNOPSIS
 
   use MP3::Splitter;
+  # Split 2 chunks from a file: the first starts at 3sec, length 356.25sec;
+  # the second starts at 389sec, preferable length 615sec, but if EOF is met
+  # up to 10sec before expected end of chunk, this is not considered a failure.
   mp3split('xx.mp3', {verbose => 1}, [3, 356.25], [389, 615, lax => 10]);
 
   mp3split_read('xx.mp3', 'xx.list', {verbose => 1});
@@ -273,7 +275,8 @@ C<03h05m56.45s>, or C<03:05:56.45>; any of the hours/minutes/seconds fields
 can be omited if the result is not ambiguous.  Alternatively, one
 can specify the start field as a relative position w.r.t. the end of
 previous piece (or start of file); to do this, prepend C<E<gt>> to the
-field.  Similarly, one can put end-of-the-piece in the duration
+field.  Similarly, one can put the absolute position of the end-of-the-piece
+in the duration
 field by prepending the time by C<=>; if this field has a special value
 C<'INF'>, it is assumed to go until the start of the next piece, or until
 the audio ends.  The remaining
@@ -320,9 +323,11 @@ size of the piece (and positions of 99 intermediate moments) when the piece is
 finished.  Both these options default to TRUE.
 
 Other recognized options: C<verbose>, C<overwrite> and C<lax>; the
-last one means the how early the mp3 file can end before the end of the last chunk so that an error
-condition is not rised; the default is 0.02 (in sec).  If C<overwrite> is false
-(default), it is a fatal error if a fail with a target name exists.
+last one means the how early the mp3 file can end before the end of the last
+chunk so that an error condition is not rised; the default is 0.02 (in sec),
+use some ridiculously large value (such as C<1e100> if EOF is never an error).
+If C<overwrite> is false (default), it is a fatal error if a file with the
+target name exists.
 
 =head2 EXPORT
 
@@ -349,7 +354,25 @@ Here is a more elaborate example of the syntax:
   >0	INF	 # The 4th piece starts where 3rd ends, ends where 5th starts
   1:15		 # Last piece starts at 1m15s and goes to the end
 
-wi
+=head1 LIMITATIONS
+
+The current implementation removes all the non-frame information when
+extracting the chunks. this may/should change in the future.
+
+The splitting is performed on the level of audio frames; we ignore finer
+structure of audio stream ("actual" chunks of audio stream may be shared
+between - up to 3 - consecutive audio frames).  This may introduce error
+for up to duration of 3 frames, which is 1/25sec.
+
+The frames are accessed via C<MPEG::Audio::Frame> module; thus the bugs
+of this module may bite us as well.  In particular, until C<MPEG::Audio::Frame>
+supports skipping C<RIFF> and C<ID3v1>/C<ID3v2> headers/footers, false
+"syncronization marks" in this headers may confuse this module as well.
+
+The latter limitation may be especially relevant to users of Apple software;
+due to bugs in Apple's MP3 creators, the C<ID3v2> headers are not
+unsyncronized; note that embedded binary data (images?) have very high
+probability to contain false "syncronization marks".
 
 =head1 SEE ALSO
 
@@ -363,7 +386,7 @@ Ilya Zakharevich, E<lt>cpan@ilyaz.orgE<gt>
 
 Lousely based on code of C<mp3cut> by Johan Vromans <jvromans@squirrel.nl>.
 
-Copyright (C) 2004, 2005 by Ilya Zakharevich
+Copyright (C) 2004--2006 by Ilya Zakharevich
 
 This library is free software; you can redistribute it and/or modify
 it under the same terms as Perl itself, either Perl version 5.8.2 or,

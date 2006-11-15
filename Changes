@@ -29,3 +29,7 @@ Revision history for Perl extension MP3::Splitter.
 	Add example file `cuts' and two components of a sample mp3 file.
 	Actual used callback name is `name_callback' not 'piece_name'.
 	Actual tests introduced.
+
+0.04	_Xing() could have been called on undef if no frames found
+		(usually triggered by a bug in MPEG::Audio::Frame 0.09)...
+	Minor cleanup of the docs; hint at bugs of Apple and M::A::Frame.
